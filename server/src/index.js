@@ -12,14 +12,30 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT || 5000);
 
-const clientOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
-  .split(",")
-  .map((url) => url.trim());
+// Define allowed origins
+const defaultOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://idcardphoto.vercel.app", // Your Vercel frontend
+];
+
+const clientOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(",").map((url) => url.trim())
+  : defaultOrigins;
+
+// Ensure Vercel URL is always included
+if (!clientOrigins.includes("https://idcardphoto.vercel.app")) {
+  clientOrigins.push("https://idcardphoto.vercel.app");
+}
+
+console.log("CORS allowed origins:", clientOrigins);
 
 app.use(
   cors({
     origin: clientOrigins,
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 app.use(express.json({ limit: "10mb" }));
