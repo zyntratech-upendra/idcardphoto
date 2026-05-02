@@ -14,6 +14,7 @@ const initialForm = {
 
 const StudentManager = ({ onStudentsChanged }) => {
   const [form, setForm] = useState(initialForm);
+  const [editingStudentId, setEditingStudentId] = useState("");
   const [students, setStudents] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -37,22 +38,50 @@ const StudentManager = ({ onStudentsChanged }) => {
     loadStudents();
   }, []);
 
-  const addStudent = async (event) => {
+  const saveStudent = async (event) => {
     event.preventDefault();
     setError("");
     try {
-      await api.post("/students", form);
+      if (editingStudentId) {
+        await api.put(`/students/${editingStudentId}`, form);
+      } else {
+        await api.post("/students", form);
+      }
       setForm(initialForm);
+      setEditingStudentId("");
       await loadStudents(search);
       onStudentsChanged?.();
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to add student");
+      setError(err.response?.data?.message || `Failed to ${editingStudentId ? "update" : "add"} student`);
     }
+  };
+
+  const startEditing = (student) => {
+    setError("");
+    setEditingStudentId(student._id);
+    setForm(
+      Object.keys(initialForm).reduce(
+        (nextForm, key) => ({
+          ...nextForm,
+          [key]: student[key] || "",
+        }),
+        {}
+      )
+    );
+  };
+
+  const cancelEditing = () => {
+    setEditingStudentId("");
+    setForm(initialForm);
+    setError("");
   };
 
   const deleteStudent = async (id) => {
     try {
       await api.delete(`/students/${id}`);
+      if (editingStudentId === id) {
+        cancelEditing();
+      }
       await loadStudents(search);
       onStudentsChanged?.();
     } catch (err) {
@@ -84,8 +113,21 @@ const StudentManager = ({ onStudentsChanged }) => {
   return (
     <div className="grid gap-4 lg:grid-cols-[420px_1fr]">
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="text-lg font-semibold text-slate-900">Manual Student Entry</h2>
-        <form className="mt-4 grid gap-2" onSubmit={addStudent}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-slate-900">
+            {editingStudentId ? "Edit Student Record" : "Manual Student Entry"}
+          </h2>
+          {editingStudentId && (
+            <button
+              className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+              type="button"
+              onClick={cancelEditing}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+        <form className="mt-4 grid gap-2" onSubmit={saveStudent}>
           {Object.keys(initialForm).map((key) => (
             <input
               key={key}
@@ -97,7 +139,7 @@ const StudentManager = ({ onStudentsChanged }) => {
             />
           ))}
           <button className="mt-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">
-            Add Student
+            {editingStudentId ? "Update Student" : "Add Student"}
           </button>
         </form>
 
@@ -179,13 +221,22 @@ const StudentManager = ({ onStudentsChanged }) => {
                   <td className="px-3 py-2">{student.year}</td>
                   <td className="px-3 py-2">{student.email}</td>
                   <td className="px-3 py-2">
-                    <button
-                      className="rounded-md border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-                      type="button"
-                      onClick={() => deleteStudent(student._id)}
-                    >
-                      Delete
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                        type="button"
+                        onClick={() => startEditing(student)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="rounded-md border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                        type="button"
+                        onClick={() => deleteStudent(student._id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
